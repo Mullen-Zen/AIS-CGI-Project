@@ -65,6 +65,15 @@ def format_currency(value):
         return f"${float(value):,.0f}"
     except (ValueError, TypeError):
         return "0"
+
+"""
+Formats a number with comma separators
+"""    
+def format_number(value):
+    try:
+        return f"{float(value):,.0f}"
+    except (ValueError, TypeError):
+        return "0"
     
 """
 Returns a color code corresponding to a given saturation level
