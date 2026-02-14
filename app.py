@@ -127,6 +127,7 @@ st.divider()
 # row 2: visualizations
 c1, c2 = st.columns([2, 1])
 
+# TODO: either apply logarithmic scale to y-axis on chart or across all data, the diff between a 10-grad surplus and a 100-grad surplus is exponential not linear
 with c1:
     st.subheader("Supply vs. Demand Horizon")
     projection_row = pd.DataFrame({
@@ -158,6 +159,27 @@ with c1:
     st.altair_chart((line + rule + text).interactive(), use_container_width=True)
 
     st.caption(sentiment)
+
+with c2:
+    st.subheader("Underlying Jobs")
+    st.markdown("The selected degree maps to these careers:")
+
+    jobs_mapped = detailed_demand[detailed_demand['CIP_Code'] == selected_cip].copy()
+    if not jobs_mapped.empty:
+        jobs_mapped = jobs_mapped.sort_values("Annual_Openings", ascending=False)
+        
+        st.dataframe(
+            jobs_mapped[['SOC_Title', 'Annual_Openings']],
+            column_config={
+                "SOC_Title": "Job Title",
+                "Annual_Openings": st.column_config.NumberColumn("Openings", format="%d")
+            },
+            hide_index=True,
+            use_container_width=True,
+            height=300
+        )
+    else:
+        st.warning("No direct job mappings found in BLS crosswalk.")
 
 # row 3: prescriptive engine
 #todo: engine
