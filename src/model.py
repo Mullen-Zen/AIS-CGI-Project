@@ -10,7 +10,7 @@ def predict_future_supply(supply_history, cip_code, current_year=2024, projectio
 
     # first make sure there are enough data points
     if len(degree_data) < 2:
-        last_val = degree_data['Graduates'].illoc[-1] if not degree_data.empty else 0
+        last_val = degree_data['Graduates'].iloc[-1] if not degree_data.empty else 0
         return last_val, 0.0, degree_data # "no growth"
     
     # format data for scikit-learn

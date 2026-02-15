@@ -10,7 +10,6 @@ from src.utils import (
     format_number,
     get_saturation_color,
     get_sentiment_blurb,
-    CIP_FAMILY_MAP
 )
 
 st.set_page_config(
@@ -51,8 +50,12 @@ except Exception as e:
 
 # --- sidebar and navigation ---
 with st.sidebar:
-    st.title("Degree Market Saruration Analysis")
-    st.markdown("Compare the investment required for your degree against market saturation and projected future demand.")
+    st.title("CGI Competition Degree Value Analysis Tool")
+    st.markdown("Compare the investment required for a student's degree against market saturation and projected future demand.")
+    st.divider()
+
+    target_year = st.slider("Expected Graduation Year", min_value=2026, max_value=2034, value=2028, step=1)
+    st.caption(f"Forecasting supply for {target_year}")
     st.divider()
 
     # filter family
@@ -66,10 +69,10 @@ with st.sidebar:
 
     # get code for specified name
     selected_cip = family_df[family_df['CIP_Title'] == selected_degree]['CIP_Code'].iloc[0]
-    st.info(f"**CIP Code for Selected Degree:** {selected_cip}")
+    # st.info(f"**CIP Code for Selected Degree:** {selected_cip}")
 
     st.divider()
-    st.caption("Data Sources: data.gov, IPEDS (Completions, 2016-24), BLS (Occupational Projections 2024-2034). Analysis by Garrison Mullen.")
+    st.caption("Data Sources: data.gov, IPEDS (Completions, 2016-24), BLS (Occupational Projections 2024-2034).")
 
 # --- main app ---
 
@@ -81,25 +84,33 @@ annual_openings = degree_row['Annual_Openings']
 
 # run prediction model
 current_grads = degree_row['Graduates']
-future_grads, slope, history_df = predict_future_supply(supply_history, selected_cip)
+future_grads, slope, history_df = predict_future_supply(supply_history, selected_cip, projection_years=target_year - 2024)
+
+sentiment = get_sentiment_blurb(saturation_index, job_growth)
 
 # header
-st.title(selected_degree)
+st.title(selected_degree+".")
 st.markdown(f"Market Status: **{degree_row['Saturation_Tag']}**")
+st.markdown(f"*{sentiment}*")
 
 # row 1: key metrics
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
+    slope_color = "inverse" if (slope is not None and slope < 0) else "normal"
+    verb = "Rose" if slope > 0 else "Fell" if slope < 0 else "Stable"
+    arrow = "up" if slope > 0 else "down" if slope < 0 else "off"
     st.metric(
         label = "Current Annual Graduates",
         value = format_number(current_grads),
-        delta = f"Trending towards {slope:.0f} this year" if slope is not None else "N/A", #TODO: delta color based on slope direction
+        delta = f"{verb} by {abs(slope):.0f} this year" if slope is not None else "N/A",
+        delta_color=slope_color,
+        delta_arrow=f"{arrow}"
     )
 
 with col2:
     st.metric(
-        label = "Projected Annual Graduates (2028)", #TODO: adjust prediction year as necessary
+        label = f"Projected Annual Graduates ({target_year})",
         value = format_number(future_grads),
         help = "Linear regression forecast based on historical graduation trends (2016-2024)",
     )
@@ -112,14 +123,16 @@ with col3:
     )
 
 with col4:
-    sentiment = get_sentiment_blurb(saturation_index, job_growth)
     color = get_saturation_color(saturation_index)
+    arrow = "up" if saturation_index >= 1.0 else "down" if saturation_index < 1.0 else "off"
 
     st.metric(
         label="Saturation Index",
         value=f"{saturation_index:.2f}" if pd.notna(saturation_index) else "N/A",
-        delta=sentiment, # TODO: text wrap or no clip for legibility
-        delta_color=color
+        delta=f"{degree_row['Saturation_Tag']}",
+        delta_color=color,
+        delta_arrow=arrow,
+        help="Ratio of graduates to job openings. The larger the number, the more difficult the market is considered to enter."
     )
 
 st.divider()
@@ -127,11 +140,10 @@ st.divider()
 # row 2: visualizations
 c1, c2 = st.columns([2, 1])
 
-# TODO: either apply logarithmic scale to y-axis on chart or across all data, the diff between a 10-grad surplus and a 100-grad surplus is exponential not linear
 with c1:
     st.subheader("Supply vs. Demand Horizon")
     projection_row = pd.DataFrame({
-        'Year': [2028], #TODO: year?
+        'Year': [target_year],
         'Graduates': [future_grads],
         'Type': ['Projected']
     })
@@ -140,7 +152,7 @@ with c1:
 
     line = alt.Chart(chart_data).mark_line(point=True).encode(
         x=alt.X('Year:O', axis=alt.Axis(format='d')),
-        y=alt.Y('Graduates', title='Number of Graduates'),
+        y=alt.Y('Graduates', title='Number of Graduates', scale=alt.Scale(type='linear')),
         color=alt.Color('Type', scale=alt.Scale(domain=['Historical', 'Projected'], range=['#3182bd', '#9ecae1'])),
     )
 
@@ -156,7 +168,7 @@ with c1:
         text=alt.value(f"Market Capacity ({int(annual_openings)} jobs/yr)")
     )
 
-    st.altair_chart((line + rule + text).interactive(), use_container_width=True)
+    st.altair_chart((line + rule + text).interactive(), width='stretch')
 
     st.caption(sentiment)
 
@@ -175,11 +187,51 @@ with c2:
                 "Annual_Openings": st.column_config.NumberColumn("Openings", format="%d")
             },
             hide_index=True,
-            use_container_width=True,
+            width='stretch',
             height=300
         )
     else:
         st.warning("No direct job mappings found in BLS crosswalk.")
 
+st.divider()
+
 # row 3: prescriptive engine
-#todo: engine
+if saturation_index > 1.2:
+    st.error(f"{selected_degree} is currently oversaturated (Index: {saturation_index:.2f}).")
+    st.markdown("### Alternatives with Lower Saturation")
+    st.markdown(f"Consider these related majors in **{get_cip_family(selected_cip)}** that have better market ratios:")
+    
+    recommendations = get_alternatives(selected_cip, master_df)
+
+    if not recommendations.empty:
+        rec_cols = st.columns(3)
+        for i, (index, row) in enumerate(recommendations.iterrows()):
+            # Predict future graduates for this alternative
+            alternative_future_grads, _, _ = predict_future_supply(supply_history, row['CIP_Code'], projection_years=target_year - 2024)
+            
+            col = rec_cols[i % 3]
+            with col:
+                with st.container(border=True):
+                    st.subheader(row['CIP_Title'])
+                    st.metric(
+                        "Saturation Index", 
+                        f"{row['Saturation_Index']:.2f}", 
+                        delta="Alternative", 
+                        delta_color="normal",
+                        delta_arrow="off",
+                        help="Though these markets may also be saturated, they are less so than the current selection."
+                    )
+                    st.write(f"**Openings:** {format_number(row['Annual_Openings'])}")
+                    st.write(f"**Grads ({target_year}):** {format_number(alternative_future_grads)}")
+    else:
+        st.info("No direct pivots found in this specific family. Consider looking at broader adjacent fields.")
+
+elif pd.isna(saturation_index):
+    st.warning("Insufficient data to calculate saturation (Likely 0 recorded job openings).")
+
+else:
+    st.success(f"{selected_degree} has a healthy supply/demand ratio.")
+    st.markdown("You are entering a market that needs your skills. Focus on internships to secure your spot.")
+
+st.divider()
+st.caption("Note: This is an educational and research tool. Always consider multiple factors when making educational and career decisions.")

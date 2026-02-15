@@ -21,6 +21,7 @@ def load_data():
 
     crosswalk["CIP_Code"] = crosswalk["CIP_Code"].astype(str).str.strip()
     crosswalk["SOC_Code"] = crosswalk["SOC_Code"].astype(str).str.strip()
+    crosswalk["CIP_Title"] = crosswalk["CIP_Title"].astype(str).str.rstrip('.')
 
     # Projections contains information on the current and projected employment for each SOC code, as well as predicted changes in job openings
     projections_path = os.path.join("data", "occupation.xlsx")
@@ -74,7 +75,7 @@ def load_data():
             df.columns = df.columns.str.strip()
 
             if 'AWLEVEL' in df.columns:
-                df = df[df['AWLEVEL'].isin(['5', '7'])]
+                df = df[df['AWLEVEL'].isin(['5', '7', '05', '07'])]
 
             df = df.rename(columns={
                 "CIPCODE": "CIP_Code",
@@ -90,7 +91,7 @@ def load_data():
             supply_frames.append(df_agg)
 
         except Exception as e:
-            print(f"Skipping file {filename} due to one or more error(s): {e}")
+            print(f"Skipping file {filename} due to error: {e}")
 
     if supply_frames:
         supply_history = pd.concat(supply_frames, ignore_index=True)
@@ -105,16 +106,13 @@ Merges the three datasets into one DataFrame, indexed by degree (CIP)
 """
 def get_master_dataframe():
     crosswalk, projections, supply_history = load_data()
-    print("Loaded data")
 
     if supply_history.empty:
         print("No supply history data found. Returning empty master dataframe.")
         return pd.DataFrame(), supply_history, pd.DataFrame()
 
     # Aggregate demand by degree
-    print("Merging crosswalk and projections")
     merged_demand = pd.merge(crosswalk, projections, on="SOC_Code", how="left")
-    print("Merged crosswalk and projections")
 
     cols_to_sum = ["Current_Employment", "Projected_Employment", "Annual_Openings"]
     merged_demand[cols_to_sum] = merged_demand[cols_to_sum].fillna(0)
@@ -130,7 +128,6 @@ def get_master_dataframe():
 
     latest_year = supply_history['Year'].max()
     current_supply = supply_history[supply_history['Year'] == latest_year].copy()
-    print(f"Years of supply data found: {sorted(supply_history['Year'].unique())}")
 
     # Merge datasets
     master_df = pd.merge(cip_demand, current_supply, on="CIP_Code", how="inner")

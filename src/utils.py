@@ -82,24 +82,24 @@ def get_saturation_color(value):
     if value is None or value != value:
         return "off" # grey
         
-    # Higher saturation -> red
+    # red
     if value > 1.2:
         return "inverse" 
         
-    # Lower saturation -> green
+    # green
     if value < 0.8:
         return "normal"
         
-    return "off" # balanced
+    return "off"
 
 """
 Returns a test blurb on market sentiment for a given saturation level
 """
 def get_sentiment_blurb(saturation_index, job_growth_rate):
     if saturation_index > 1.2:
-        return "Oversaturated markets indicate high competition and barriers to entry for even entry-level positions. Consider alternative degrees with lower saturation."
+        return "Oversaturated markets indicate high competition and barriers to entry for even entry-level positions."
     elif saturation_index < 0.8:
-        return "Undersaturated markets indicate higher compensation and better opportunity for new graduates. Consider this program strongly."
+        return "Undersaturated markets indicate higher compensation and better opportunity for new graduates."
     elif job_growth_rate > 0.05:
         return "This market is nearly saturated, but growing steadily. Opportunities are available, especially if you have a strong profile or relevant experience."
     elif saturation_index != 0 and saturation_index == saturation_index: # check for non-zero and non-NaN
