@@ -1,6 +1,6 @@
 pandas
 numpy
-scikit-learn
+sklearn
 streamlit
 altair
 openpyxl
