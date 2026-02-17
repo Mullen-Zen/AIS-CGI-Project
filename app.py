@@ -50,7 +50,7 @@ except Exception as e:
 
 # --- sidebar and navigation ---
 with st.sidebar:
-    st.title("CGI Competition Degree Value Analysis Tool")
+    st.title("Horizon | Degree Saturation Prediction and Analysis")
     st.markdown("Compare the investment required for a student's degree against market saturation and projected future demand.")
     st.divider()
 
