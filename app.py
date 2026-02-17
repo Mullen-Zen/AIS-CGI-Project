@@ -13,7 +13,7 @@ from src.utils import (
 )
 
 st.set_page_config(
-    page_title="Degree Market Saturation Prediction and Analysis",
+    page_title="Horizon | Degree Saturation Prediction and Analysis",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded"
