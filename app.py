@@ -78,13 +78,31 @@ with st.sidebar:
 
 # get metrics for selected degree
 degree_row = master_df[master_df['CIP_Code'] == selected_cip].iloc[0]
-saturation_index = degree_row['Saturation_Index']
+# saturation_index = degree_row['Saturation_Index'] #TODO:
 job_growth = degree_row['Job_Growth_Rate']
 annual_openings = degree_row['Annual_Openings']
 
 # run prediction model
 current_grads = degree_row['Graduates']
 future_grads, slope, history_df = predict_future_supply(supply_history, selected_cip, projection_years=target_year - 2024)
+
+if annual_openings > 0:
+    saturation_index = future_grads / annual_openings
+else:
+    saturation_index = float('nan')
+
+if saturation_index > 1.5:
+    saturation_tag = "Highly Saturated"
+elif saturation_index > 1.2:
+    saturation_tag = "Saturated"
+elif saturation_index > 0.9:
+    saturation_tag = "Balanced"
+elif saturation_index < 0.9:
+    saturation_tag = "Unsaturated"
+elif pd.isna(saturation_index):
+    saturation_tag = "Unknown"
+else:
+    saturation_tag = "Balanced"
 
 sentiment = get_sentiment_blurb(saturation_index, job_growth)
 
@@ -129,7 +147,7 @@ with col4:
     st.metric(
         label="Saturation Index",
         value=f"{saturation_index:.2f}" if pd.notna(saturation_index) else "N/A",
-        delta=f"{degree_row['Saturation_Tag']}",
+        delta=f"{saturation_tag}",
         delta_color=color,
         delta_arrow=arrow,
         help="Ratio of graduates to job openings. The larger the number, the more difficult the market is considered to enter."
